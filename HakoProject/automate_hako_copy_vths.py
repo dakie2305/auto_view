@@ -47,7 +47,6 @@ def get_asura_chapter_title(driver):
     chapter_title = input_elem.get_attribute("value")
     print("Detected chapter title:", chapter_title)
     pyperclip.copy(chapter_title)
-    print("Copied to clipboard!")
     return chapter_title
 
 
@@ -101,12 +100,16 @@ def get_next_chapter_url(driver, current_title):
     chapter_links = driver.find_elements(By.CSS_SELECTOR, "ul.list-chapters li div.chapter-name a")
     
     next_url = None
+    current_title_norm = normalize_text(current_title)
+
     for i, a in enumerate(chapter_links):
-        title = a.get_attribute("title").strip()
-        if title.lower() == current_title.strip().lower():  # normalize
+        title = a.get_attribute("title")
+        if title and current_title_norm in normalize_text(title):
             if i + 1 < len(chapter_links):
                 next_url = chapter_links[i + 1].get_attribute("href")
             break
+
+
     pyperclip.copy(next_url)
     print(f"Copied next url to clipboard: {next_url}")
     return next_url
@@ -170,11 +173,14 @@ def wait_for_page_load(driver, timeout=10):
         lambda d: d.execute_script("return document.readyState") == "complete"
     )
 
+def normalize_text(s):
+    return " ".join(s.strip().lower().split())  # lowercase and collapse all whitespace
+
 
 def main():
     kill_existing_edge()
     driver = setup_driver()
-    MAX_CHAPTERS = 10
+    MAX_CHAPTERS = 30
     count = 0
     try:
         while count < MAX_CHAPTERS:
