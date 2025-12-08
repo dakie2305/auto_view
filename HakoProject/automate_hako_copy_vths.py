@@ -10,6 +10,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 MAIN_URL_CREATE_CHAPTER_ASURA_TEAM="https://asura.com.vn/my-group/novel/vinh-thoai-hiep-si/create-chapter"
 MAIN_URL_LIST_HAKO="https://docln.net/truyen/21180-vinh-thoai-hiep-si"
+MAIN_ASURA_TAB_WINDOW_HANDLE = None
+MAIN_HAKO_LIST_TAB_WINDOW_HANDLE = None
 
 
 def setup_driver():
@@ -25,9 +27,22 @@ def setup_driver():
     return driver
 
 def get_asura_chapter_title(driver):
-    """Get the previous chapter title from asura.com.vn and copy to clipboard."""
-    driver.get(MAIN_URL_CREATE_CHAPTER_ASURA_TEAM)
-    time.sleep(2)  # wait for page to load slowly
+    """Get the previous chapter title from Asura input, only load page if needed."""
+    global MAIN_ASURA_TAB_WINDOW_HANDLE
+
+    # If we don't know the tab handle, open a new one
+    if MAIN_ASURA_TAB_WINDOW_HANDLE is None or MAIN_ASURA_TAB_WINDOW_HANDLE not in driver.window_handles:
+        driver.get(MAIN_URL_CREATE_CHAPTER_ASURA_TEAM)
+        time.sleep(2)
+        MAIN_ASURA_TAB_WINDOW_HANDLE = driver.current_window_handle
+    else:
+        # Switch to the existing tab
+        driver.switch_to.window(MAIN_ASURA_TAB_WINDOW_HANDLE)
+        # Check if the current URL matches the Asura create chapter page
+        if driver.current_url != MAIN_URL_CREATE_CHAPTER_ASURA_TEAM:
+            driver.get(MAIN_URL_CREATE_CHAPTER_ASURA_TEAM)
+            time.sleep(2)
+    # Get previous chapter title
     input_elem = driver.find_element(By.NAME, "previous_chapter_name")
     chapter_title = input_elem.get_attribute("value")
     print("Detected chapter title:", chapter_title)
@@ -35,16 +50,25 @@ def get_asura_chapter_title(driver):
     print("Copied to clipboard!")
     return chapter_title
 
+
 def open_docln_and_click(driver):
-    """Open docln.net in a new tab and click 'Xem tiếp' slowly."""
-    old_tabs = driver.window_handles
-    driver.execute_script("window.open('');")
-    WebDriverWait(driver, 10).until(lambda d: len(d.window_handles) > len(old_tabs))
-    new_tab = [tab for tab in driver.window_handles if tab not in old_tabs][0]
-    driver.switch_to.window(new_tab)
-    time.sleep(1)
-    driver.get(MAIN_URL_LIST_HAKO)
-    wait_for_page_load(driver)  # wait for page to load slowly
+    """Open docln.net in a new tab and click 'Xem tiếp' slowly if needed."""
+    global MAIN_HAKO_LIST_TAB_WINDOW_HANDLE
+    # Check if Docln tab is already open
+    if MAIN_HAKO_LIST_TAB_WINDOW_HANDLE is None or MAIN_HAKO_LIST_TAB_WINDOW_HANDLE not in driver.window_handles:
+        # Open new tab
+        old_tabs = driver.window_handles
+        driver.execute_script("window.open('');")
+        WebDriverWait(driver, 10).until(lambda d: len(d.window_handles) > len(old_tabs))
+        new_tab = [tab for tab in driver.window_handles if tab not in old_tabs][0]
+        driver.switch_to.window(new_tab)
+        time.sleep(1)
+        driver.get(MAIN_URL_LIST_HAKO)
+        MAIN_HAKO_LIST_TAB_WINDOW_HANDLE = driver.current_window_handle
+    else:
+        # Switch to existing Docln tab
+        driver.switch_to.window(MAIN_HAKO_LIST_TAB_WINDOW_HANDLE)
+    wait_for_page_load(driver)
     try:
         # Wait until at least one 'Xem tiếp' button is visible
         WebDriverWait(driver, 10).until(
@@ -60,8 +84,11 @@ def open_docln_and_click(driver):
             try:
                 btn.click()
                 print(f"Clicked button {i}!")
+                time.sleep(0.5)  # slight delay between clicks
             except Exception as e: pass
-    except Exception as e: pass
+    except Exception as e:
+        print("No 'Xem tiếp' buttons found or error:", e)
+
 
 
 def get_next_chapter_url(driver, current_title):
@@ -84,7 +111,7 @@ def get_next_chapter_url(driver, current_title):
     print(f"Copied next url to clipboard: {next_url}")
     return next_url
 
-def go_next_chapter_url(driver, url):
+def go_next_chapter_url_and_work_up(driver, url):
     """Open new chapter in new tab to copy the title and content."""
     old_tabs = driver.window_handles
     driver.execute_script("window.open('');")
@@ -92,31 +119,42 @@ def go_next_chapter_url(driver, url):
     new_tab = [tab for tab in driver.window_handles if tab not in old_tabs][0]
     driver.switch_to.window(new_tab)
     time.sleep(1)
-    driver.get(MAIN_URL_LIST_HAKO)
+    driver.get(url)
+    page_handle = driver.current_window_handle
     wait_for_page_load(driver)  # wait for page to load slowly
     try:
         title_elem  = driver.find_element(By.CSS_SELECTOR, "h4.title-item.text-base")
         new_chapter_title = title_elem.text.strip()
-        main_tab = [tab for tab in driver.window_handles if tab.current_url == MAIN_URL_CREATE_CHAPTER_ASURA_TEAM]
-        if not main_tab:
-            print("Main tab is not found! Aborting")
-            return
-        driver.switch_to.window(main_tab)
+        #Select all <p> under #chapter-content and copy to clipboard like manual selection.
+        
+        container = driver.find_element(By.ID, "chapter-content")
+        paragraphs = container.find_elements(By.TAG_NAME, "p")
+        visible_html = "".join([p.get_attribute("outerHTML") for p in paragraphs if p.is_displayed()])
+
+        driver.switch_to.window(MAIN_ASURA_TAB_WINDOW_HANDLE)
         input_elem = driver.find_element(By.XPATH, "//input[@name='chapter_title']")
         input_elem.clear()
         input_elem.send_keys(new_chapter_title)
+        
+        editor_id = "ckeditor_chapter_content"
+        driver.execute_script(f"""
+        CKEDITOR.instances['{editor_id}'].setData(`{visible_html}`);
+        CKEDITOR.instances['{editor_id}'].fire('change');
+        """)
+        time.sleep(2) #wait 2s
+        
+        button = driver.find_element(By.CSS_SELECTOR, "button.px-8.py-3.rounded-xl.bg-blue-600")
+        button.click()
+        
+        #close old tab
+        driver.switch_to.window(page_handle)
+        driver.close()
+        print(f"Successfully uploaded new chapter: {new_chapter_title}")
+        
         return
-
-
-    except Exception as e: pass
-
-
-
-
-
-
-
-
+    except Exception as e: 
+        print(f"Exception in go_next_chapter_url_and_work_up: {e}")
+        pass
 
 
 def kill_existing_edge():
@@ -136,10 +174,20 @@ def wait_for_page_load(driver, timeout=10):
 def main():
     kill_existing_edge()
     driver = setup_driver()
+    MAX_CHAPTERS = 10
+    count = 0
     try:
-        chapter_title = get_asura_chapter_title(driver)
-        open_docln_and_click(driver)
-        next_url = get_next_chapter_url(driver=driver, current_title=chapter_title)
+        while count < MAX_CHAPTERS:
+            chapter_title = get_asura_chapter_title(driver)
+            open_docln_and_click(driver)
+            next_url = get_next_chapter_url(driver=driver, current_title=chapter_title)
+            if not next_url:
+                print("No next chapter found. Stopping.")
+                break
+            go_next_chapter_url_and_work_up(driver=driver, url=next_url)
+            count += 1
+            time.sleep(2)
+            
     finally:
         print("Automation finished. Keep browser open for inspection.")
         input("Press Enter to exit Python and leave the browser open...")
