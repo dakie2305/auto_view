@@ -8,11 +8,10 @@ import subprocess
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 import os
-import base64
 
 
 
-MAIN_URL="https://cuutruyen.net/mangas/4319/chapters/83236"
+MAIN_URL="https://cuutruyen.net/mangas/4189/chapters/80954"
 
 
 def setup_driver():
@@ -51,16 +50,21 @@ def get_chapter_title(driver):
         EC.presence_of_element_located((By.CSS_SELECTOR, "h1"))
     )
     return sanitize_filename(title_el.text)
+
+def get_manga_title(driver):
+    el = driver.find_element(By.CSS_SELECTOR, 'a[href^="/mangas/"]')
+    title = el.text.strip()
+    print(title)
+    return sanitize_filename(title)
+
+
 def download_images(folder, driver):
     os.makedirs(folder, exist_ok=True)
-    
     # 1. Zoom out or set a massive window size to ensure the whole canvas fits
     # This helps avoid 'stitching' errors in screenshots
     driver.set_window_size(1920, 3000) 
-
-    pages = driver.find_elements(By.CSS_SELECTOR, "div.lg\\:max-w-screen-lg")
+    pages = driver.find_elements(By.CSS_SELECTOR, 'div[id^="page-"]')
     image_index = 1
-
     for index, page in enumerate(pages):
         try:
             # Scroll to the page
@@ -69,12 +73,12 @@ def download_images(folder, driver):
 
             # 2. Find the target canvas
             try:
-                target_canvas = page.find_element(By.CSS_SELECTOR, "div.absolute canvas")
+                target_canvas = page.find_elements(By.TAG_NAME, "canvas")[1]
                 if target_canvas is None:
                     print(f"Canvas not found for page {index}")
                     continue
-            except:
-                print(f"Page {index}: Canvas never appeared. Skipping.")
+            except Exception as e:
+                print(f"Page {index}: exception {e}.")
                 continue
 
             # 3. JAVASCRIPT TRICK: 
@@ -122,11 +126,13 @@ def main():
         wait_for_page_load(driver)
         time.sleep(5)  # let JS render fully
         # 1. Get title
+        manga_title = get_manga_title(driver)
+        print("Manga:", manga_title)
         chapter_title = get_chapter_title(driver)
         print("Chapter:", chapter_title)
+        folder = f"{manga_title}/{chapter_title}"
         # 2. Attempt to download image
-
-        download_images(chapter_title, driver)
+        download_images(folder, driver)
             
     finally:
         print("Automation finished. Keep browser open for inspection.")
