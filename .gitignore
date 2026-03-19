@@ -2,3 +2,4 @@
 *.xlsx
 HakoProject/msedgedriver.exe
 /HakoProject/venv
+/CTProject/venv
