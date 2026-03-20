@@ -11,7 +11,7 @@ import os
 
 
 
-MAIN_URL="https://cuutruyen.net/mangas/2533/chapters/46147"
+MAIN_URL="https://cuutruyen.net/mangas/152/chapters/32743"
 
 
 def setup_driver():

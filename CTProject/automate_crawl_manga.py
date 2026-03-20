@@ -11,7 +11,7 @@ import os
 
 
 
-MAIN_URL="https://cuutruyen.net/mangas/3411"
+MAIN_URL="https://cuutruyen.net/mangas/1911"
 BASE_DIR = r"E:\Manga"
 
 def setup_driver():
