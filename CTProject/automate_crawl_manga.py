@@ -11,8 +11,8 @@ import os
 
 
 
-MAIN_URL="https://cuutruyen.net/mangas/2533/chapters/46147"
-
+MAIN_URL="https://cuutruyen.net/mangas/152/chapters/8849"
+BASE_DIR = r"E:\Manga"
 
 def setup_driver():
     """Set up Edge WebDriver with user profile and logging disabled."""
@@ -52,11 +52,22 @@ def get_chapter_title(driver):
     return sanitize_filename(title_el.text)
 
 def get_manga_title(driver):
-    el = driver.find_element(By.CSS_SELECTOR, 'a[href^="/mangas/"]')
+    el = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((
+            By.CSS_SELECTOR,
+            'div.flex.justify-between.mb-12 > a.flex.items-center'
+        ))
+    )
     title = el.text.strip()
     print(title)
     return sanitize_filename(title)
 
+def get_next_button(driver):
+    try:
+        btn = driver.find_element(By.XPATH, '//a[contains(text(), "Chương sau")]')
+        return btn
+    except:
+        return None
 
 def download_images(folder, driver):
     os.makedirs(folder, exist_ok=True)
@@ -121,18 +132,49 @@ def download_images(folder, driver):
 def main():
     kill_existing_edge()
     driver = setup_driver()
+    visited = set()
     try:
         driver.get(MAIN_URL)
-        wait_for_page_load(driver)
-        time.sleep(5)  # let JS render fully
-        # 1. Get title
-        manga_title = get_manga_title(driver)
-        print("Manga:", manga_title)
-        chapter_title = get_chapter_title(driver)
-        print("Chapter:", chapter_title)
-        folder = f"{manga_title}/{chapter_title}"
-        # 2. Attempt to download image
-        download_images(folder, driver)
+        while True:
+            wait_for_page_load(driver)
+            time.sleep(4)
+
+            current_url = driver.current_url
+            if current_url in visited:
+                print("Already visited, stopping to avoid loop.")
+                break
+            visited.add(current_url)
+
+            # Get titles
+            manga_title = get_manga_title(driver)
+            chapter_title = get_chapter_title(driver)
+
+            folder = os.path.join(BASE_DIR, manga_title, chapter_title)
+
+            # Skip if already downloaded
+            if os.path.exists(folder):
+                print(f"Skipped: {chapter_title}")
+            else:
+                print(f"Downloading: {chapter_title}")
+                download_images(folder, driver)
+
+            # Find next button
+            next_btn = get_next_button(driver)
+
+            if not next_btn:
+                print("No next chapter button found. Done.")
+                break
+            try:
+                next_url = next_btn.get_attribute("href")
+                if not next_url:
+                    print("Next button has no link. Done.")
+                    break
+                print(f"➡ Moving to next: {next_url}")
+                driver.get(next_url)
+            except Exception as e:
+                print("Error clicking next:", e)
+                break
+            time.sleep(2)  # anti-ban safety
             
     finally:
         print("Automation finished. Keep browser open for inspection.")
