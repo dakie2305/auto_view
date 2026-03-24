@@ -11,8 +11,8 @@ import os
 
 
 
-MAIN_URL="https://cuutruyen.net/mangas/152/chapters/32743"
-
+MAIN_URL="https://cuutruyen.net/mangas/152/chapters/22509"
+BASE_DIR = r"E:\Manga"
 
 def setup_driver():
     """Set up Edge WebDriver with user profile and logging disabled."""
@@ -47,15 +47,26 @@ def sanitize_filename(name):
 
 def get_chapter_title(driver):
     title_el = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, "h1"))
+        EC.presence_of_element_located((By.CSS_SELECTOR, "h1 > span"))
     )
     return sanitize_filename(title_el.text)
 
 def get_manga_title(driver):
-    el = driver.find_element(By.CSS_SELECTOR, 'a[href^="/mangas/"]')
-    title = el.text.strip()
-    print(title)
-    return sanitize_filename(title)
+    try:
+        el = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((
+                By.CSS_SELECTOR, 
+                'div.flex.justify-between.mb-12 a'
+            ))
+        )
+        # We strip the text to remove the arrow icon's hidden labels
+        title = el.text.strip()
+        # If the site includes "Arrow Left icon" in the text, we clean it:
+        title = title.replace("Arrow Left icon", "").strip()
+        return sanitize_filename(title)
+    except Exception as e:
+        print(f"Error finding Manga Title: {e}")
+        return "Unknown_Manga"
 
 
 def download_images(folder, driver):
@@ -130,7 +141,7 @@ def main():
         print("Manga:", manga_title)
         chapter_title = get_chapter_title(driver)
         print("Chapter:", chapter_title)
-        folder = f"{manga_title}/{chapter_title}"
+        folder = f"{BASE_DIR}/{manga_title}/{chapter_title}"
         # 2. Attempt to download image
         download_images(folder, driver)
             

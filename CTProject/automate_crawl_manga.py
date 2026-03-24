@@ -11,7 +11,7 @@ import os
 
 
 
-MAIN_URL="https://cuutruyen.net/mangas/1911"
+MAIN_URL="https://cuutruyen.net/mangas/1288"
 BASE_DIR = r"E:\Manga"
 
 def setup_driver():
@@ -230,7 +230,7 @@ def get_all_chapters(driver):
 
     # Convert dict to sorted list
     chapters = list(chapters_dict.values())
-    chapters.sort(key=lambda x: x["num"])
+    chapters.reverse()
     
     print(f"Successfully indexed {len(chapters)} chapters.")
     return chapters

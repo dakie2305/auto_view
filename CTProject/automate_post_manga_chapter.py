@@ -11,8 +11,8 @@ import os
 
 
 
-MAIN_URL="https://asura.com.vn/my-group/manga/spy-x-family/create-chapter"
-BASE_DIR = r"E:\Manga\Spy x Family (FULL HD)"
+MAIN_URL="https://asura.com.vn/my-group/manga/co-ban-gai-ma-minh-thich-lai-quen-mang-theo-kinh-mat-roi/create-chapter"
+BASE_DIR = r"E:\Manga\Cô Bạn Gái Mà Mình Thích Lại Quên Mang Theo Kính Mất Rồi"
 MAX_TABS = 3
 
 def setup_driver():
@@ -57,10 +57,7 @@ def get_next_chapter_folder(base_dir, previous_title):
         f for f in os.listdir(base_dir)
         if os.path.isdir(os.path.join(base_dir, f))
     ]
-    folders = sorted(
-        folders,
-        key=lambda x: extract_chapter_number(x)
-    )
+    folders.sort(key=lambda f: os.path.getmtime(os.path.join(base_dir, f)))
     print("Folders:", folders)
     if previous_title not in folders:
         raise Exception(f"Previous chapter not found in folders: {previous_title}")
@@ -137,7 +134,7 @@ def wait_until_upload_done(driver):
     
 def get_all_local_folders(base_dir):
     folders = [f for f in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, f))]
-    folders.sort(key=lambda x: extract_chapter_number(x))
+    folders.sort(key=lambda f: os.path.getmtime(os.path.join(base_dir, f)))
     return folders
 
 def process_tab(driver, folder_name):
@@ -211,7 +208,7 @@ def main():
             except Exception:
                 # Tab might have closed or element not found yet
                 continue
-        time.sleep(5) # Poll every 5 seconds
+        time.sleep(5) # Poll every seconds
 
     print("All available local folders have been processed.")
     driver.quit()
