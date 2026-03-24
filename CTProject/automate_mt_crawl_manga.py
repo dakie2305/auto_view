@@ -30,8 +30,6 @@ def setup_driver():
     driver = webdriver.Edge(options=options)
     return driver
 
-
-
 def kill_existing_edge():
     """Kill all running Edge processes using Windows taskkill."""
     try:
@@ -254,7 +252,7 @@ def get_first_chapter_url(driver):
     try:
         base_url = MAIN_URL
 
-        # Step 1: get pagination links
+        # get pagination links
         pagination_links = driver.find_elements(
             By.CSS_SELECTOR, ".admin-pagination__numbers a"
         )
@@ -272,7 +270,7 @@ def get_first_chapter_url(driver):
         # Remove duplicates
         page_urls = list(set(page_urls))
 
-        # Sort → go to LAST page (highest number)
+        # Sort -> go to LAST page (highest number)
         def extract_page_num(url):
             match = re.search(r'chapterPage=(\d+)', url)
             return int(match.group(1)) if match else 1
