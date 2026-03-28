@@ -13,9 +13,9 @@ import io
 import requests
 import re
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+import os
 
-
-MAIN_URL="https://moetruyen.net/manga/147-arika-cua-toi"
+MAIN_URL="https://moetruyen.net/manga/15-cam-xuc-cua-to-la"
 BASE_DIR = r"E:\Manga"
 
 def setup_driver():
@@ -45,7 +45,7 @@ def wait_for_page_load(driver, timeout=10):
 
 
 def sanitize_filename(name):
-    return re.sub(r'[\\/*?:"<>|]', "", name).strip()
+    return re.sub(r'[\\/*?:"<>|.]', "", name).strip()
 
 def get_chapter_title(driver):
     title_el = WebDriverWait(driver, 10).until(
@@ -125,7 +125,7 @@ def download_images(folder, driver):
     # Download
     for i, (_, url) in enumerate(image_list, start=1):
         try:
-            res = requests.get(url, headers=headers, timeout=15)
+            res = requests.get(url, headers=headers, timeout=60)
             res.raise_for_status()
             file_path = os.path.join(folder, f"{i:03}.jpg")
             img = Image.open(io.BytesIO(res.content)).convert("RGB")
@@ -154,8 +154,7 @@ def save_as_jpg(webp_bytes, output_path):
         optimize=True
     )
     
-import os
-import re
+
 
 def get_latest_chapter_folder(manga_folder):
     try:
