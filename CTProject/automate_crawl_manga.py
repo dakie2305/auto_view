@@ -11,8 +11,10 @@ import os
 
 
 
-MAIN_URL="https://cuutruyen.net/mangas/1288"
+MAIN_URL="https://cuutruyen.net/mangas/152"
 BASE_DIR = r"E:\Manga"
+# OVER_CHAPTER_NAME = r"Chương 218 - Tên đó là xác ướp mà"
+OVER_CHAPTER_NAME = None
 
 def setup_driver():
     """Set up Edge WebDriver with user profile and logging disabled."""
@@ -97,10 +99,21 @@ def download_images(folder, driver):
             # and remove any CSS limits (like max-width) temporarily.
             driver.execute_script("""
                 const canvas = arguments[0];
-                canvas.style.width = canvas.width + 'px';
-                canvas.style.height = canvas.height + 'px';
+
+                const maxWidth = 1920;
+                const maxHeight = 2800; // slightly less than window height for safety
+
+                const scale = Math.min(
+                    maxWidth / canvas.width,
+                    maxHeight / canvas.height,
+                    1 // never upscale
+                );
+
+                canvas.style.width = (canvas.width * scale) + 'px';
+                canvas.style.height = (canvas.height * scale) + 'px';
+
                 canvas.style.maxWidth = 'none';
-                canvas.style.position = 'fixed'; // Bring it to the top layer
+                canvas.style.position = 'fixed';
                 canvas.style.top = '0';
                 canvas.style.left = '0';
                 canvas.style.zIndex = '10000';
@@ -169,7 +182,7 @@ def get_all_chapters(driver):
     # Target the virtual scroller container
     scroller_selector = ".vue-recycle-scroller"
     try:
-        scroller = WebDriverWait(driver, 10).until(
+        scroller = WebDriverWait(driver, 1).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, scroller_selector))
         )
     except:
@@ -244,16 +257,22 @@ def get_latest_downloaded_chapter(manga_folder):
     return existing  # return all folders instead of max
 
 def find_starting_chapter(chapters, existing_folders):
+    if OVER_CHAPTER_NAME:
+        for chap in chapters:
+            if OVER_CHAPTER_NAME in chap["title"]:
+                print(f"Bắt đầu từ chương chỉ định (Override): {chap['title']}")
+                return chap
+
     if not existing_folders:
-        print("No existing chapters → start from first")
         return chapters[0]
 
     for chap in chapters:
         if chap["title"] not in existing_folders:
-            print(f"Next missing chapter: {chap['title']}")
+            print(f"Tiếp tục tải chương còn thiếu: {chap['title']}")
             return chap
 
     return None
+
 
 def main():
     kill_existing_edge()
@@ -287,6 +306,7 @@ def main():
 
         # LOOP chapters
         while True:
+            driver.refresh()
             wait_for_page_load(driver)
             time.sleep(4)
 

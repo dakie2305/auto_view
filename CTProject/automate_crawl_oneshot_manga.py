@@ -11,7 +11,7 @@ import os
 
 
 
-MAIN_URL="https://cuutruyen.net/mangas/152/chapters/22509"
+MAIN_URL="https://cuutruyen.net/mangas/152/chapters/85552"
 BASE_DIR = r"E:\Manga"
 
 def setup_driver():
@@ -97,10 +97,21 @@ def download_images(folder, driver):
             # and remove any CSS limits (like max-width) temporarily.
             driver.execute_script("""
                 const canvas = arguments[0];
-                canvas.style.width = canvas.width + 'px';
-                canvas.style.height = canvas.height + 'px';
+
+                const maxWidth = 1920;
+                const maxHeight = 2800; // slightly less than window height for safety
+
+                const scale = Math.min(
+                    maxWidth / canvas.width,
+                    maxHeight / canvas.height,
+                    1 // never upscale
+                );
+
+                canvas.style.width = (canvas.width * scale) + 'px';
+                canvas.style.height = (canvas.height * scale) + 'px';
+
                 canvas.style.maxWidth = 'none';
-                canvas.style.position = 'fixed'; // Bring it to the top layer
+                canvas.style.position = 'fixed';
                 canvas.style.top = '0';
                 canvas.style.left = '0';
                 canvas.style.zIndex = '10000';
