@@ -15,7 +15,7 @@ import re
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 import os
 
-MAIN_URL="https://moetruyen.net/manga/15-cam-xuc-cua-to-la"
+MAIN_URL="https://moetruyen.net/manga/30-tiem-di-anh"
 BASE_DIR = r"E:\Manga"
 
 def setup_driver():
@@ -48,23 +48,30 @@ def sanitize_filename(name):
     return re.sub(r'[\\/*?:"<>|.]', "", name).strip()
 
 def get_chapter_title(driver):
-    title_el = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located(
-            (By.CSS_SELECTOR, ".reader-title h1")
+    try:
+        # Wait for presence
+        title_el = WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, ".reader-dock__chapter"))
         )
-    )
-    return sanitize_filename(title_el.text.strip())
+        text = title_el.get_attribute("textContent").strip()
+        if not text:
+            text = title_el.get_attribute("textContent").strip()
+        if text:
+            return sanitize_filename(text)
+        return None
+    except Exception as e:
+        print(f"Error finding chapter title: {e}")
+        return None
 
 def get_manga_title(driver):
-    el = WebDriverWait(driver, 10).until(
-        EC.visibility_of_element_located((
-            By.CSS_SELECTOR,
-            ".reader-title .reader-meta span:first-child"
-        ))
-    )
-    title = el.text.strip()
-    print(title)
-    return sanitize_filename(title)
+    try:
+        el = WebDriverWait(driver, 10).until(
+            EC.visibility_of_element_located((By.CSS_SELECTOR, ".reader-dock__series-link"))
+        )
+        return sanitize_filename(el.text.strip())
+    except:
+        # Original fallback
+        return sanitize_filename(driver.find_element(By.CSS_SELECTOR, "h1.manga-detail-title").text.strip())
 
 def get_next_button(driver):
     try:
@@ -81,15 +88,11 @@ def download_images(folder, driver):
     os.makedirs(folder, exist_ok=True)
 
     WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located(
-            (By.CSS_SELECTOR, ".reader-pages img.page-media")
-        )
+        EC.presence_of_all_elements_located((By.CSS_SELECTOR, "img.page-media"))
     )
-
-    images = driver.find_elements(By.CSS_SELECTOR, ".reader-pages img.page-media")
-
+    images = driver.find_elements(By.CSS_SELECTOR, "img.page-media")
     headers = {
-        "User-Agent": "Mozilla/5.0",
+        "User-Agent": "MoziMozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "Referer": driver.current_url
     }
 
@@ -312,9 +315,7 @@ def main():
         driver.get(MAIN_URL)
         wait_for_page_load(driver)
         # Get manga title
-        manga_title = sanitize_filename(
-            driver.find_element(By.CSS_SELECTOR, "h1.manga-detail-title").text.strip()
-        )
+        manga_title = get_manga_title(driver)
         print(f"Manga Title: {manga_title}")
         manga_folder = os.path.join(BASE_DIR, manga_title)
         os.makedirs(manga_folder, exist_ok=True)
@@ -352,8 +353,8 @@ def main():
             chapter_title = get_chapter_title(driver)
 
             if not chapter_title:
-                print("Fallback to h1 (unexpected)")
-                chapter_title = get_chapter_title(driver)
+                print("Can not get chapter title, stopping.")
+                break
             folder = os.path.join(BASE_DIR, manga_title, chapter_title)
             # Skip if already downloaded
             if os.path.exists(folder):
